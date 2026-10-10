@@ -1,4 +1,5 @@
 import QtQuick
+import Quickshell.Io
 import qs.Commons
 import qs.Ui
 import "settings"
@@ -31,6 +32,12 @@ Panel {
   readonly property var hostConfig: Settings.normalize(service ? service.live : settings)
   property var config: hostConfig
   readonly property bool active: config.widgets.length > 0
+
+  // Real liquid glass comes from the hyprglass Hyprland plugin, which is
+  // optional: without it the cards still render, only as flat translucent
+  // rectangles. `glassAvailable` mirrors the running compositor's plugin list,
+  // and `installGlass` offers to fetch the plugin through hyprpm in a terminal.
+  property bool glassAvailable: false
 
   function refreshConfig() {
     root.config = root.shadow !== null ? root.shadow : root.hostConfig
@@ -101,10 +108,44 @@ Panel {
     write({ widgets: list })
   }
 
+  // Ask the compositor which plugins are loaded. Cheap, so we only do it when
+  // the popup opens rather than on a timer.
+  function probeGlass() {
+    if (!glassProbe.running) glassProbe.running = true
+  }
+
+  // Install hyprglass in a terminal the user can watch. hyprpm builds against
+  // the exact Hyprland version (and runs sudo itself when its cache needs it),
+  // so this must run interactively rather than silently from the shell. The
+  // final `hyprctl reload` re-runs the user's config, which is what binds our
+  // layer namespace to a hyprglass preset.
+  function installGlass() {
+    if (glassInstall.running) return
+    var script = [
+      "echo 'Installing hyprglass (Liquid Glass) for the Liquid Widgets plugin...'",
+      "echo",
+      "if hyprpm add https://github.com/hyprnux/hyprglass && hyprpm enable hyprglass && hyprctl reload; then",
+      "  echo",
+      "  echo 'Done. hyprglass is installed and loaded.'",
+      "  echo 'Reopen the widget settings to see the liquid glass.'",
+      "else",
+      "  echo",
+      "  echo 'Installation did not finish. See the messages above.'",
+      "fi",
+      "echo",
+      "read -n1 -s -r -p 'Press any key to close this window.'"
+    ].join("\n")
+    glassInstall.command = ["omarchy-launch-terminal", "bash", "-lc", script]
+    glassInstall.running = true
+  }
+
   // The bar host re-injects `settings` as soon as they change on disk, and the
   // service reads the same entry live, so nothing needs to be pushed to it.
   // This widget is only asked to keep sampling alive while the popup is open.
-  onOpenedChanged: if (service) service.panelViewing = opened
+  onOpenedChanged: {
+    if (service) service.panelViewing = opened
+    if (opened) root.probeGlass()
+  }
   Component.onDestruction: if (service) service.panelViewing = false
 
   implicitWidth: button.implicitWidth
@@ -123,6 +164,24 @@ Panel {
       else root.toggle()
     }
   }
+
+  // Reads the compositor's plugin list; anything mentioning hyprglass counts.
+  Process {
+    id: glassProbe
+    command: ["hyprctl", "plugin", "list"]
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: root.glassAvailable = text.indexOf("hyprglass") !== -1
+    }
+  }
+
+  // Launches the installer terminal. Its own exit tells us nothing (the terminal
+  // detaches), so we re-probe when the popup next opens instead.
+  Process {
+    id: glassInstall
+  }
+
+  Component.onCompleted: root.probeGlass()
 
   KeyboardPanel {
     id: panel
@@ -159,12 +218,14 @@ Panel {
           id: content
           width: parent.width
           config: root.config
+          glassAvailable: root.glassAvailable
           onWidgetToggled: function (id) { root.toggleWidget(id) }
           onPositionPicked: function (position) { root.write({ position: position }) }
           onSettingChanged: function (key, value) { root.writeOne(key, value) }
           onFlagToggled: function (key) { root.writeOne(key, !root.config[key]) }
           onClockStylePicked: function (style) { root.writeOne("clockStyle", style) }
           onResetLayoutRequested: function () { root.write({ positions: ({}), sizes: ({}) }) }
+          onInstallGlassRequested: root.installGlass()
         }
       }
     }

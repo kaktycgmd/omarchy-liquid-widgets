@@ -9,6 +9,9 @@ Column {
   id: root
 
   required property var config
+  // Whether the hyprglass Hyprland plugin is loaded. Purely for display: the
+  // panel asks the bar widget to install it, it never runs anything itself.
+  property bool glassAvailable: false
 
   signal widgetToggled(string id)
   signal positionPicked(string position)
@@ -16,6 +19,7 @@ Column {
   signal flagToggled(string key)
   signal clockStylePicked(string style)
   signal resetLayoutRequested()
+  signal installGlassRequested()
 
   spacing: Style.spacing.md
 
@@ -214,6 +218,62 @@ Column {
     options: root.clockStyles
     selected: root.config.clockStyle
     onPicked: function (value) { root.clockStylePicked(value) }
+  }
+
+  // ---- Liquid glass ------------------------------------------------------
+  SectionHeader {
+    title: "Liquid glass"
+    detail: root.glassAvailable ? "active" : "not installed"
+  }
+
+  Text {
+    width: parent.width
+    visible: root.glassAvailable
+    wrapMode: Text.WordWrap
+    textFormat: Text.PlainText
+    text: "hyprglass is active, so the cards render as real liquid glass."
+    color: root.dim
+    font.family: root.fontFamily
+    font.pixelSize: Style.font.caption
+  }
+
+  Text {
+    width: parent.width
+    visible: !root.glassAvailable
+    wrapMode: Text.WordWrap
+    textFormat: Text.PlainText
+    text: "The glass effect needs the hyprglass Hyprland plugin. Without it the widgets are flat translucent cards. Install it below — a terminal opens and runs hyprpm, which will ask for your password."
+    color: root.dim
+    font.family: root.fontFamily
+    font.pixelSize: Style.font.caption
+  }
+
+  Rectangle {
+    width: parent.width
+    visible: !root.glassAvailable
+    height: Style.spacing.controlHeight + Style.space(6)
+    radius: Style.space(8)
+    color: Util.alpha(Color.accent, installArea.containsMouse ? 0.35 : 0.22)
+    border.width: Style.space(1)
+    border.color: Util.alpha(Color.accent, 0.9)
+
+    Text {
+      anchors.centerIn: parent
+      textFormat: Text.PlainText
+      text: "Install hyprglass"
+      color: root.foreground
+      font.family: root.fontFamily
+      font.pixelSize: Style.font.caption
+      font.bold: true
+    }
+
+    MouseArea {
+      id: installArea
+      anchors.fill: parent
+      hoverEnabled: true
+      cursorShape: Qt.PointingHandCursor
+      onClicked: root.installGlassRequested()
+    }
   }
 
   // ---- Layout ------------------------------------------------------------

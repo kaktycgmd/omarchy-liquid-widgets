@@ -1,7 +1,7 @@
 # Liquid Widgets
 
 Desktop widgets for the [Omarchy](https://omarchy.org/) Quattro shell, painted with the
-[hyprglass](https://github.com/) liquid-glass effect: a clock, a CPU/load monitor, a graphics
+[hyprglass](https://github.com/hyprnux/hyprglass) liquid-glass effect: a clock, a CPU/load monitor, a graphics
 card card, a power-profile card and a battery card. They sit on the wallpaper, between it and
 your windows, and stay out of the way while you work.
 
@@ -38,17 +38,43 @@ still fine — just flat translucent cards instead of real liquid glass.
 omarchy plugin add https://github.com/kaktycgmd/omarchy-liquid-widgets.git --enable
 ```
 
-Then, if you want the glass, bind the plugin namespace in hyprglass, for example:
+## Liquid glass (optional)
 
-```lua
-hl.config({ plugin = { hyprglass = {
-  layers = { namespaces = { "omarchy-bar", "kaktyc-liquid-widgets" } },
-  namespace_presets = { ["kaktyc-liquid-widgets"] = "widget_refract" },
-}}})
+The glass effect is drawn by the **[hyprglass](https://github.com/hyprnux/hyprglass)** Hyprland
+plugin, which is installed separately. Without it the widgets still work — they are just flat
+translucent cards instead of real liquid glass.
+
+The easiest way to get it is from the widget itself: open the bar popup and click **Install
+hyprglass**. A terminal opens and runs `hyprpm`, which builds the plugin against your exact
+Hyprland version (and asks for your password when its cache needs `sudo`). This is exactly the
+manual command, if you prefer to run it yourself:
+
+```sh
+hyprpm add https://github.com/hyprnux/hyprglass
+hyprpm enable hyprglass
+hyprctl reload
 ```
 
-The exact hyprglass configuration is yours to taste; the namespace the widgets use is
-`kaktyc-liquid-widgets`.
+Finally, bind the widget layer to a hyprglass preset in your Hyprland config, so hyprglass knows
+this surface may be glassed. For example, in `~/.config/hypr/hyprland.lua`:
+
+```lua
+if hl.plugin.hyprglass then
+    local hg = hl.plugin.hyprglass
+    hg.config({ layers = { enabled = true,
+        namespaces = "omarchy-bar, kaktyc-liquid-widgets",
+        namespace_presets = "kaktyc-liquid-widgets:widget_refract",
+        namespace_mask_thresholds = "omarchy-bar=0.0, kaktyc-liquid-widgets=0.1",
+    }})
+    hg.preset("widget_refract", {
+        blur_strength = 0.5, refraction_strength = 1.2, chromatic_aberration = 0.2,
+        lens_distortion = 0.12, fresnel_strength = 0.55, specular_strength = 0.55,
+        glass_opacity = 1.0, edge_thickness = 0.12, brightness = 1.0,
+    })
+end
+```
+
+The namespace the widgets use is `kaktyc-liquid-widgets`; the preset is yours to taste.
 
 ## Usage
 
